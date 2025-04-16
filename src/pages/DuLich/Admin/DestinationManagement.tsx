@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Upload, message, Select, InputNumber } from 'antd';
-import { UploadOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import type { UploadProps } from 'antd';
+import { Table, Button, Modal, Form, Input, message, Select, InputNumber } from 'antd';
+import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getTouristPlaces, TouristPlace } from '../../../services/touristData';
 
 const { TextArea } = Input;
@@ -30,7 +29,12 @@ const DestinationManagement: React.FC = () => {
 
   const handleEdit = (record: TouristPlace) => {
     setEditingDestination(record);
-    form.setFieldsValue(record);
+    // Gán lại dữ liệu cho form, nếu cần chuyển đổi activities về dạng chuỗi cho input
+    form.setFieldsValue({
+      ...record,
+      imageUrl: record.image, // mapping từ image sang imageUrl cho form nhập
+      activities: record.activities ? record.activities.join(', ') : '',
+    });
     setIsModalVisible(true);
   };
 
@@ -43,20 +47,37 @@ const DestinationManagement: React.FC = () => {
 
   const handleOk = () => {
     form.validateFields().then(values => {
+      // Chuyển giá trị activities thành mảng bằng cách tách chuỗi theo dấu phẩy
+      const activitiesArray = values.activities ? values.activities.split(',').map((item: string) => item.trim()) : [];
+      const updatedDestination = {
+        // Map lại key imageUrl sang image
+        name: values.name,
+        image: values.imageUrl,
+        location: values.location,
+        type: values.type,
+        rating: values.rating,
+        price: values.price,
+        description: values.description,
+        activities: activitiesArray,
+        bestTimeToVisit: values.bestTimeToVisit,
+      };
+
       const newDestinations = [...destinations];
       if (editingDestination) {
-        // Sửa
+        // Sửa: Tìm vị trí của destination cần cập nhật
         const index = newDestinations.findIndex(dest => dest.id === editingDestination.id);
-        newDestinations[index] = { ...editingDestination, ...values };
+        newDestinations[index] = { ...editingDestination, ...updatedDestination };
+        message.success('Cập nhật thành công');
       } else {
-        // Thêm mới
-        const newId = Math.max(...destinations.map(dest => dest.id)) + 1;
-        newDestinations.push({ ...values, id: newId });
+        // Thêm mới: Tạo id mới, nếu danh sách rỗng thì bắt đầu từ 1
+        const newId = destinations.length > 0 ? Math.max(...destinations.map(dest => dest.id)) + 1 : 1;
+        newDestinations.push({ ...updatedDestination, id: newId });
+        message.success('Thêm mới thành công');
       }
+
       localStorage.setItem('touristPlaces', JSON.stringify(newDestinations));
       setDestinations(newDestinations);
       setIsModalVisible(false);
-      message.success(editingDestination ? 'Cập nhật thành công' : 'Thêm mới thành công');
     });
   };
 
@@ -93,7 +114,7 @@ const DestinationManagement: React.FC = () => {
       title: 'Giá',
       dataIndex: 'price',
       key: 'price',
-      render: (price: any) => (typeof price === 'number' ? `${price.toLocaleString()} VNĐ` : ''),
+      render: (price: number) => (typeof price === 'number' ? `${price.toLocaleString()} VNĐ` : ''),
     },
     {
       title: 'Hành động',
@@ -111,20 +132,6 @@ const DestinationManagement: React.FC = () => {
     },
   ];
 
-  const uploadProps: UploadProps = {
-    name: 'file',
-    action: 'https://www.mocky.io/v2/5cc8019d300000980a055e76',
-    headers: {
-      authorization: 'authorization-text',
-    },
-    onChange(info) {
-      if (info.file.status === 'done') {
-        message.success(`${info.file.name} tải lên thành công`);
-      } else if (info.file.status === 'error') {
-        message.error(`${info.file.name} tải lên thất bại`);
-      }
-    },
-  };
 
   return (
     <div>
@@ -196,11 +203,24 @@ const DestinationManagement: React.FC = () => {
           >
             <Input placeholder="https://..." />
           </Form.Item>
-
+          <Form.Item
+            name="activities"
+            label="Các hoạt động"
+            rules={[{ required: true, message: 'Vui lòng nhập các hoạt động (cách nhau bởi dấu phẩy)' }]}
+          >
+            <Input placeholder="Ví dụ: Tắm biển, Leo núi, Tham quan di tích" />
+          </Form.Item>
+          <Form.Item
+            name="bestTimeToVisit"
+            label="Thời gian tham quan tốt nhất"
+            rules={[{ required: true, message: 'Vui lòng nhập thời gian tham quan tốt nhất' }]}
+          >
+            <Input placeholder="Ví dụ: Tháng 2 đến tháng 8" />
+          </Form.Item>
         </Form>
       </Modal>
     </div>
   );
 };
 
-export default DestinationManagement; 
+export default DestinationManagement;
